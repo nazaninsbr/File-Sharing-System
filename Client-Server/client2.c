@@ -12,7 +12,7 @@ unsigned short int get_port_number(){
 	while(read(0, buff, sizeof(buff)>0)){
 		write(1, buff, 1);
 	}
-	//scanf("%hd", &port);
+	covert_charStar_to_int(buff);
 	return port;
 }
 
