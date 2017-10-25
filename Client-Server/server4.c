@@ -1,84 +1,133 @@
-/****************** SERVER CODE ****************/
-#include <fcntl.h>
- 
-/* Not technically required, but needed on some UNIX distributions */
-#include <sys/types.h>
-#include <sys/stat.h>
+/*
+** server.c -- a stream socket server demo
+*/
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <string.h>
+#include <netdb.h>
 #include <arpa/inet.h>
-#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
 
-int main(){
-		int welcomeSocket, newSocket;
-		char buffer[1024];
-		char textBuffer[4096];
-		struct sockaddr_in serverAddr;
-		struct sockaddr_storage serverStorage;
-		socklen_t addr_size;
+#define PORT "3490"  // the port users will be connecting to
 
-		/*---- Create the socket. The three arguments are: ----*/
-		/* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
-		welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
-		
-		/*---- Configure settings of the server address struct ----*/
-		/* Address family = Internet */
-		serverAddr.sin_family = AF_INET;
-		/* Set port number, using htons function to use proper byte order */
-		serverAddr.sin_port = htons(7891);
-		/* Set IP address to localhost */
-		serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-		/* Set all bits of the padding field to 0 */
-		memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
+#define BACKLOG 10     // how many pending connections queue will hold
 
-		/*---- Bind the address struct to the socket ----*/
-		bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
+void sigchld_handler(int s)
+{
+    // waitpid() might overwrite errno, so we save and restore it:
+    int saved_errno = errno;
 
-		while(1){
-				/*---- Listen on the socket, with 5 max connection requests queued ----*/
-				if(listen(welcomeSocket,5)==0)
-					printf("Listening\n");
-				else
-					printf("Error\n");
+    while(waitpid(-1, NULL, WNOHANG) > 0);
 
-				/*---- Accept call creates a new socket for the incoming connection ----*/
-				addr_size = sizeof serverStorage;
-				newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
+    errno = saved_errno;
+}
 
-				// Read data into buffer.  We may not have enough to fill up buffer, so we
-		    // store how many bytes were actually read in bytes_read.
-		    int fd = open("1.txt", O_WRONLY | O_APPEND);
-		    if(fd <0){
-		    	printf("error opening file\n");
-		    }
-		    int bytes_read = read(fd, textBuffer, sizeof(textBuffer));
-		    if (bytes_read == 0){ // We're done reading from the file
-		    		strcpy(buffer,"No Content\n");
-    				send(newSocket,buffer,11,0);
-		    }
 
-		    if (bytes_read < 0) {
-		        strcpy(buffer,"Error\n");
-    				send(newSocket,buffer,6,0);
-		    }
-		    write(1, textBuffer, 4096);
-		    // You need a loop for the write, because not all of the data may be written
-		    // in one call; write will return how many bytes were written. p keeps
-		    // track of where in the buffer we are, while we decrement bytes_read
-		    // to keep track of how many bytes are left to write.
-		    void *p = textBuffer;
-		    while (bytes_read > 0) {
-		        int bytes_written = write(newSocket, p, bytes_read);
-		        if (bytes_written <= 0) {
-		            strcpy(buffer,"Error\n");
-    						send(newSocket,buffer,6,0);
-		        }
-		        bytes_read -= bytes_written;
-		        p += bytes_written;
-		    }
-		}
+// get sockaddr, IPv4 or IPv6:
+void *get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
 
-		return 0;
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+int main(void)
+{
+    int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
+    struct addrinfo hints, *servinfo, *p;
+    struct sockaddr_storage their_addr; // connector's address information
+    socklen_t sin_size;
+    struct sigaction sa;
+    int yes=1;
+    char s[INET6_ADDRSTRLEN];
+    int rv;
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE; // use my IP
+
+    if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return 1;
+    }
+
+    // loop through all the results and bind to the first we can
+    for(p = servinfo; p != NULL; p = p->ai_next) {
+        if ((sockfd = socket(p->ai_family, p->ai_socktype,
+                p->ai_protocol)) == -1) {
+            perror("server: socket");
+            continue;
+        }
+
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+                sizeof(int)) == -1) {
+            perror("setsockopt");
+            exit(1);
+        }
+
+        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+            close(sockfd);
+            perror("server: bind");
+            continue;
+        }
+
+        break;
+    }
+
+    freeaddrinfo(servinfo); // all done with this structure
+
+    if (p == NULL)  {
+        fprintf(stderr, "server: failed to bind\n");
+        exit(1);
+    }
+
+    if (listen(sockfd, BACKLOG) == -1) {
+        perror("listen");
+        exit(1);
+    }
+
+    sa.sa_handler = sigchld_handler; // reap all dead processes
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
+
+    printf("server: waiting for connections...\n");
+
+    while(1) {  // main accept() loop
+        sin_size = sizeof their_addr;
+        new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+        if (new_fd == -1) {
+            perror("accept");
+            continue;
+        }
+
+        inet_ntop(their_addr.ss_family,
+            get_in_addr((struct sockaddr *)&their_addr),
+            s, sizeof s);
+        printf("server: got connection from %s\n", s);
+
+        if (!fork()) { // this is the child process
+            close(sockfd); // child doesn't need the listener
+            if (send(new_fd, "Hello, world!", 13, 0) == -1)
+                perror("send");
+            close(new_fd);
+            exit(0);
+        }
+        close(new_fd);  // parent doesn't need this
+    }
+
+    return 0;
 }
