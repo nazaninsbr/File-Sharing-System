@@ -1,35 +1,39 @@
-#include <string.h>
-#include <sys/types.h>
+/****************** CLIENT CODE ****************/
+
+#include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <string.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <stdio.h>
-
-unsigned short int get_port_number(){
-	unsigned short int port;
-	char buff[10];
-	while(read(0, buff, sizeof(buff)>0)){
-		write(1, buff, 1);
-	}
-	covert_charStar_to_int(buff);
-	return port;
-}
-
 int main(){
-	int sockfd;
-	unsigned short int port_number;
-	char ip[100];
-	struct sockaddr_in my_addr;
+  int clientSocket;
+  char buffer[1024];
+  struct sockaddr_in serverAddr;
+  socklen_t addr_size;
 
-	int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+  /*---- Create the socket. The three arguments are: ----*/
+  /* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
+  clientSocket = socket(PF_INET, SOCK_STREAM, 0);
+  
+  /*---- Configure settings of the server address struct ----*/
+  /* Address family = Internet */
+  serverAddr.sin_family = AF_INET;
+  /* Set port number, using htons function to use proper byte order */
+  serverAddr.sin_port = htons(3490);
+  /* Set IP address to localhost */
+  serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+  /* Set all bits of the padding field to 0 */
+  memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
 
-	port_number = get_port_number();
+  /*---- Connect the socket to the server using the address struct ----*/
+  addr_size = sizeof serverAddr;
+  connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size);
 
-	my_addr.sin_family = AF_INET;
-	my_addr.sin_family = htons(port_number);
-	my_addr.sin_addr.s_addr = inet_addr(ip);
-	memset(&(my_addr.sin_zero), '\0', 8); // zero the rest of the struct
+  /*---- Read the message from the server into the buffer ----*/
+  recv(clientSocket, buffer, 1024, 0);
 
-	return 0;
+  /*---- Print the received message ----*/
+  printf("Data received: %s",buffer);   
+
+  return 0;
 }
