@@ -9,6 +9,7 @@ struct File{
 	char fileName[100];
 	char ip[16];
 	int port;
+	struct File* nextFile;
 	struct filePart* next;
 };
 void makeList(struct File* head){
@@ -83,44 +84,79 @@ int readUserInputNumber(){
 	numbuff[place] = '\0';
 	return convertCharArrayToInt(numbuff, sizeof(numbuff), place);
 }
-void readUserInput(char* ip, int size){
+void readUserInput(char* fileName, int size){
 	char buff[10];
-	char ipbuff[16];
+	char fileNamebuff[16];
 	int place = 0;
 	int n;
-	write(1, "IP: ", 3);
 	while( (n = read(0, buff, sizeof(buff)>0)) !=0){
 		if(n==1 && (buff[0]=='\n'))
 			break;
-		ipbuff[place] = buff[0];
+		fileNamebuff[place] = buff[0];
 		place++;
 	}
-	ipbuff[place] = '\0';
-	strcpy(ip, ipbuff);
+	fileNamebuff[place] = '\0';
+	strcpy(fileName, fileNamebuff);
+}
+int fileStructExists(struct File* head, char* fileName, int size){
+	struct File* curr = head;
+	while(curr!=NULL){
+		if(curr->fileName == fileName){
+			return 1;
+		}
+		curr = curr->next;
+	}
+	return 0;
+}
+void createFileStruct(struct File* head, char* fileName, int size){
+	struct File* newfile;
+	strcpy(newfile->fileName, fileName);
+	strcpy(newfile->ip, head->ip);
+}
+struct FilePart* createFilePartStruct(int part, char* fileName, int size){
+	struct FilePart* newFilePart;
+	newFilePart->part = part;
+	strcpy(newFilePart->fileDest, fileName);
+	return newFilePart;
 }
 void getAvailableResources(struct File* head){
 	int counter = 0;
-	struct File availableParts[100];
 	char fileName[100];
 	int partNumber;
 	do{
 		write(1, "Available File Name: (Enter 0 to finish entering availabe resources) ", 69);
-		fileName = readUserInput();
+		readUserInput(fileName, sizeof(fileName));
 		write(1, "Available Part Number: (Enter 0 to finish entering availabe resources) ", 71);
 		partNumber = readUserInputNumber();
-		if(! fileStructExists(fileName, sizeof(fileName))){
-			availableParts[counter] = createFileStruct(fileName, sizeof(fileName))
-			struct FilePart newFilePart = createFilePartStruct(partNumber, fileName, sizeof(fileName));
-			availableParts[counter].next = newFilePart;
+		if(! fileStructExists(head, fileName, sizeof(fileName))){
+			createFileStruct(head, fileName, sizeof(fileName));
+			struct FilePart* newFilePart = createFilePartStruct(partNumber, fileName, sizeof(fileName));
 		}
-		else{
-			int x = whereDoesPartFit(partNumber, fileName, sizeof(fileName));
-		}
+		// else{
+		// 	int x = whereDoesPartFit(partNumber, fileName, sizeof(fileName));
+		// }
 		counter +=1;
-	}while(readInput!='0' && partNumber!=0));
+	}while(fileName!="0" && partNumber!=0);
+}
+void printAvailableResources(struct File* head){
+	struct File* curr = head;
+	struct FilePart* thisPart;
+	while(curr!=NULL){
+		write(1, curr->fileName, sizeof(curr->fileName));
+		write(1, " : ", 3);
+		thisPart = curr->next;
+		while(thisPart!=NULL){
+			write(1, thisPart->part, sizeof(thisPart->part));
+			write(1, ", ", 2);
+			thisPart = thisPart->next;
+		}
+		write(1, "\n", 1);
+		curr = curr->nextFile;
+	}
 }
 int main(){
 	struct File* head;
 	makeList(head);
 	getAvailableResources(head);
+	printAvailableResources(head);
 }
