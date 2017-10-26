@@ -1,3 +1,3 @@
 1. the linked list implementation to keeping the book parts
 2. tell the server what files it has
-3. the server checking the directory for all the files it has 
+3. client send message
