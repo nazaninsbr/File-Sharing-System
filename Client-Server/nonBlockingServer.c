@@ -24,7 +24,7 @@
     #define MYPORT 3456    /* the port users will be connecting to */
     #define BACKLOG 10     /* how many pending connections queue will hold */
 
-    main()
+    int main()
     {
         int 			sockfd, new_fd;  /* listen on sock_fd, new connection on new_fd */
         struct 	sockaddr_in 	my_addr;    /* my address information */
@@ -90,10 +90,9 @@
             				if (send(new_fd, "Hello, world!\n", 14, 0) == -1)
                 				perror("send");
 				}
-	    		}
+	    	}
 		}
 	}
 
         
-    }
-
+}
