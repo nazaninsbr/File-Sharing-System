@@ -98,8 +98,7 @@ void readIP(char* ip, int size){
   ipbuff[place] = '\0';
   strcpy(ip, ipbuff);
 }
-
-int main(){
+void clientConnect(){
   int clientSocket;
   char buffer[1024];
   struct sockaddr_in serverAddr;
@@ -138,7 +137,9 @@ int main(){
   recv(clientSocket, buffer, 1024, 0);
 
   /*---- Print the received message ----*/
-  printf("Data received: %s",buffer);   
-
-  return 0;
+  printf("Data received: %s",buffer);
+}
+int main(){
+    clientConnect();
+    return 0;
 }
