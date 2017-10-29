@@ -131,6 +131,21 @@ int charDigitToInt(char c){
 	}
 	return ret;
 }
+int convertCharArrayToInt(char* arr, int size){
+	int converted = 0;
+	int pow = 1;
+	int base = 10;
+	for(int position = 0; position<size; position++){
+		int temp = charDigitToInt(arr[position]);
+		if(temp==-1){
+			write(1, "Invalid Port Number\n", 20);
+			_exit(1);
+		}
+		converted += temp*pow;
+		pow *= base;
+	}
+	return converted;
+}
 //This function gets a char array and returns the int equivalent
 int convertCharPortToInt(char *buff, int size, int numOfRead){
 	int converted = 0;
@@ -298,6 +313,9 @@ void decode_Resource_from_socket(File** head, char* resourceString, int size){
 		if(!iSaDigitOrDot(portTemp[i]))
 			portTemp[i]='\0';
 	}
+	_port = convertCharArrayToInt(portTemp, portcounter);
+	_part = convertCharArrayToInt(partTemp, partcounter);
+	add_file_part(head, _port, _part, file, sizeof(file), ip, sizeof(ip));
 }
 void workWithSocket(){
 	fd_set master;    // master file descriptor list
