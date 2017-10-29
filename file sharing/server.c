@@ -11,6 +11,7 @@
 #include <netdb.h>
 #define PORT "7777"
 #define BUFSIZE 1024
+#define FILEBUFF 10000
 //the stuct to keep file part info
 typedef struct File{
 	char fileName[100];
@@ -19,6 +20,10 @@ typedef struct File{
 	int part;
 	struct File* nextFile;
 }File;
+typedef struct ThisSystem{
+	char ip[16]; 
+	int port;
+}ThisSystem;
 char intToCharDigit(int c){
 	char ret; 
 	switch(c){
@@ -59,6 +64,19 @@ char intToCharDigit(int c){
 	}
 	return ret;
 }
+void reverse_string(char* str){
+	char temp;
+	int i = 0;
+    int j = strlen(str) - 1;
+ 
+   	while (i < j) {
+      	temp = str[i];
+      	str[i] = str[j];
+      	str[j] = temp;
+      	i++;
+      	j--;
+    }
+}
 void intToCharString(int x, char* charEq){
 	int a; 
 	int counter = 0; 
@@ -73,6 +91,7 @@ void intToCharString(int x, char* charEq){
 		x = x/10;
 		counter +=1;
 	}
+	reverse_string(charEq);
 }
 void print_node_info(File** curr){
 	char port[10]; 
@@ -88,6 +107,23 @@ void print_node_info(File** curr){
 	write(1, " ip: ", 5);
 	write(1, (*curr)->ip, sizeof((*curr)->ip));
 	write(1, "\n", 1);
+}
+void make_file_info_message(File** curr, char* buff){
+	char port[10]; 
+	char part[10]; 
+	memset(part, 0, sizeof(part));
+	memset(port, 0, sizeof(port));
+	intToCharString((*curr)->part, part);
+	intToCharString((*curr)->port, port);
+	strcpy(buff, "File Name: ");
+	strcat(buff, (*curr)->fileName);
+	strcat(buff, " Part: ");
+	strcat(buff, part);
+	strcat(buff, " available at port: ");
+	strcat(buff, port);
+	strcat(buff, " and IP: ");
+	strcat(buff, (*curr)->ip);
+	strcat(buff, "\n");
 }
 //This function gets a char digit and returns the int value 
 //if the char is not a digit it returns -1
@@ -169,6 +205,8 @@ int readNumber(){
 	char numbuff[1024];
 	int place = 0;
 	int n;
+	memset(buff, 0, sizeof(buff));
+	memset(numbuff, 0, sizeof(numbuff));
 	while( (n = read(0, buff, sizeof(buff)>0)) !=0){
 		if(n==1 && (buff[0]=='\n'))
 			break;
@@ -203,10 +241,11 @@ void *get_in_addr(struct sockaddr *sa){
 File* search_for_file(File** head, char* name, int size, int part){
 	File* curr = (*head);
 	while(curr!=NULL){
-		if(curr->fileName==name){
+		if(strcmp(curr->fileName,name)==0){
 			if(curr->part==part)
 				return curr;
 		}
+		curr = curr->nextFile;
 	}
 	return NULL;
 }
@@ -338,6 +377,36 @@ void encode_get_part_message(char* msg){
 	strcat(msg, "+");
 	strcat(msg, part);
 	strcat(msg,"+");
+}
+int decode_get_part_message(char* msg, char* fileName){
+	char file[100];
+	char part[5];
+	memset(file, 0, sizeof(file));
+	memset(part, 0, sizeof(part));
+	int filecounter = 0;
+	int partcounter = 0;
+	int pluscount=0;
+	for(int i=1; i<sizeof(msg); i++){
+		if(msg[i]=='+'){
+			pluscount+=1;
+			continue;
+		}
+		if(pluscount==2)
+			break;
+		if(pluscount==0){
+			file[filecounter]=msg[i];
+			filecounter+=1;
+			continue;
+		}
+		if(pluscount==1){
+			part[partcounter]=msg[i];
+			partcounter+=1;
+			continue;
+		}
+	}
+	strcpy(fileName, file);
+	int partN = convertCharArrayToInt(part, partcounter);
+	return partN;
 }
 void workWithSocket(){
 	fd_set master;    // master file descriptor list
@@ -533,6 +602,7 @@ void get_available_resources(char* ip, int size, int port_number, File** head){
 	int part_number;
 	write(1, "Enter 0 when you are done.\n", 27);
 	do{
+		memset(name, 0, sizeof(name));
 		write(1, "File Name: ", 11);
 		readString(name, sizeof(name));
 		if(name[0]=='0')
@@ -564,7 +634,7 @@ void set_up_linkedlist_head(File** head){
 	strcpy((*head)->ip, "0");
 	(*head)->nextFile = NULL;
 }
-void read_file_content(char* fileName){
+void read_and_write_file_content(char* fileName){
 	char buffer [BUFSIZE]; 
   	int length; 
   	int fd; 
@@ -582,22 +652,76 @@ void read_file_content(char* fileName){
    	write(1, "\n", 1);
   	close (fd); 
 }
+void read_file_content(char* fileName, char* buff){
+	char buffer [BUFSIZE]; 
+  	int length; 
+  	int fd; 
+   
+  	/* Open the file, print error message if we fail */
+  	if ( ( fd = open (fileName, O_RDONLY) ) < 0 ) { 
+    	write(1, "Error\n", 6);
+    	return;
+  	} 
+  	strcpy(buff, "");
+  	/* Copy file contents to stdout, stop when read returns 0 (EOF) */
+  	while ( (length = read (fd, buffer, BUFSIZE)) > 0 ) 
+  		strcat(buff, buffer);
+}
+int compare_ip_strings(char* ip1, char*ip2){
+	if(sizeof(ip1)!=sizeof(ip2))
+		return 0;
+	int x=0; 
+	while(x<sizeof(ip1)){
+		if(ip1[x]==ip2[x])
+			x+=1;
+		else
+			return 0;
+	}
+	return 1;
+}
+int handle_get_file(char* msg, File** head, ThisSystem** ourSystem, char* buff){
+	char fileName[100];
+	int part = decode_get_part_message(msg, fileName);
+	File* curr; 
+	curr = search_for_file(head, fileName, sizeof(fileName), part);
+	if(curr==NULL)
+		return -1;
+	else{
+		if( (curr->port==(*ourSystem)->port) && (compare_ip_strings(curr->ip, (*ourSystem)->ip)) ){
+			read_file_content(fileName, buff);
+		}
+		else{
+			make_file_info_message(&curr, buff);
+		}
+	}
+	return 20;
+}
 int main(){
+	ThisSystem* ourSystem = (ThisSystem*)malloc(sizeof(ThisSystem));
 	write(1, "Port: ", 6);
 	int port_number = readNumber();
 	//I considered the maximum length of the ip to be \0xxx.yyy.zzz.ttt making it 16 bits
 	char ip[16];
+	memset(ip, 0, sizeof(ip));
+	memset(ourSystem->ip, 0, sizeof(ip));
 	//reading the ip from the stdin
 	write(1, "IP: ", 3);
 	readString(ip, sizeof(ip));
 
+	strcpy(ourSystem->ip, ip); 
+	ourSystem->port = port_number;
+
 	char buff[200];
+	char filebuff[1024];
+	char fileName[100];
 	File* head; 
 	set_up_linkedlist_head(&head);
 	get_available_resources(ip, sizeof(ip), port_number, &head);
-	
+	print_available_resources(&head);
+	memset(filebuff, 0, sizeof(filebuff));
 	encode_get_part_message(buff);
-	printf("%s\n", buff);
+	if(handle_get_file(buff, &head, &ourSystem, filebuff))
+		printf("%s\n", filebuff);
 	//old_socket();
 	//workWithSocket();
 }
