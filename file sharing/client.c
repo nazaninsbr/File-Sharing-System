@@ -1,12 +1,88 @@
-/****************** CLIENT CODE ****************/
-
 #include <stdio.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <stdlib.h>
 #include <string.h>
-#include <arpa/inet.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <fcntl.h> 
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#define BUFSIZE 1024
+#define FILEBUFF 10000
+typedef struct ThisSystem{
+  char ip[16]; 
+  int port;
+}ThisSystem;
+char intToCharDigit(int c){
+  char ret; 
+  switch(c){
+    case 0:
+      ret = '0'; 
+      break;
+    case 1:
+      ret = '1'; 
+      break;
+    case 2:
+      ret = '2'; 
+      break;
+    case 3:
+      ret = '3'; 
+      break;
+    case 4:
+      ret = '4'; 
+      break;
+    case 5:
+      ret = '5'; 
+      break;
+    case 6:
+      ret = '6'; 
+      break;
+    case 7:
+      ret = '7'; 
+      break;
+    case 8:
+      ret = '8'; 
+      break;
+    case 9:
+      ret = '9'; 
+      break;
+    default:
+      ret = '-';
+      break;
 
+  }
+  return ret;
+}
+void reverse_string(char* str){
+  char temp;
+  int i = 0;
+    int j = strlen(str) - 1;
+ 
+    while (i < j) {
+        temp = str[i];
+        str[i] = str[j];
+        str[j] = temp;
+        i++;
+        j--;
+    }
+}
+void intToCharString(int x, char* charEq){
+  int a; 
+  int counter = 0; 
+  while(x>0){
+    a = x%10; 
+    charEq[counter] = intToCharDigit(a);
+    if(charEq[counter]=='-'){
+      write(1, "Invalid Port Number\n", 20);
+      _exit(1);
+    }
+    x = x - x%10; 
+    x = x/10;
+    counter +=1;
+  }
+  reverse_string(charEq);
+}
 //This function gets a char digit and returns the int value 
 //if the char is not a digit it returns -1
 int charDigitToInt(char c){
@@ -49,6 +125,21 @@ int charDigitToInt(char c){
   }
   return ret;
 }
+int convertCharArrayToInt(char* arr, int size){
+  int converted = 0;
+  int pow = 1;
+  int base = 10;
+  for(int position = 0; position<size; position++){
+    int temp = charDigitToInt(arr[position]);
+    if(temp==-1){
+      write(1, "Invalid Port Number\n", 20);
+      _exit(1);
+    }
+    converted += temp*pow;
+    pow *= base;
+  }
+  return converted;
+}
 //This function gets a char array and returns the int equivalent
 int convertCharPortToInt(char *buff, int size, int numOfRead){
   int converted = 0;
@@ -67,12 +158,13 @@ int convertCharPortToInt(char *buff, int size, int numOfRead){
 }
 //This function reads the port number using read()
 //then passes it to another function to be converted into int
-int readPortNumber(){
+int readNumber(){
   char buff[10];
   char numbuff[1024];
   int place = 0;
   int n;
-  write(1, "Port: ", 6);
+  memset(buff, 0, sizeof(buff));
+  memset(numbuff, 0, sizeof(numbuff));
   while( (n = read(0, buff, sizeof(buff)>0)) !=0){
     if(n==1 && (buff[0]=='\n'))
       break;
@@ -82,13 +174,12 @@ int readPortNumber(){
   numbuff[place] = '\0';
   return convertCharPortToInt(numbuff, 1024, place);
 }
-//this function teads the ip using read()
-void readIP(char* ip, int size){
+//This function teads the ip using read()
+void readString(char* ip, int size){
   char buff[10];
   char ipbuff[16];
   int place = 0;
   int n;
-  write(1, "IP: ", 3);
   while( (n = read(0, buff, sizeof(buff)>0)) !=0){
     if(n==1 && (buff[0]=='\n'))
       break;
@@ -98,34 +189,81 @@ void readIP(char* ip, int size){
   ipbuff[place] = '\0';
   strcpy(ip, ipbuff);
 }
-void clientConnect(){
+void get_get_part_message(char* file, char* part){
+  write(1, "The name of the file you want: ", 31);
+  readString(file, sizeof(file));
+  write(1, "Which part? ", 12);
+  readString(part, sizeof(part));
+}
+/*
+  we encode it like this
+    g(which stands for get)<file name>+<part>+
+*/
+void encode_get_part_message(char* msg){
+  char file[100];
+  char part[5];
+  memset(file, 0, sizeof(file));
+  memset(part, 0, sizeof(part));
+  get_get_part_message(file, part);
+  strcpy(msg, "g");
+  strcat(msg, file);
+  strcat(msg, "+");
+  strcat(msg, part);
+  strcat(msg,"+");
+}
+//This is a socket that only sends one message
+void read_and_write_file_content(char* fileName){
+  char buffer [BUFSIZE]; 
+    int length; 
+    int fd; 
+   
+    /* Open the file, print error message if we fail */
+    if ( ( fd = open (fileName, O_RDONLY) ) < 0 ) { 
+      write(1, "Error\n", 6);
+      return;
+    } 
+
+    /* Copy file contents to stdout, stop when read returns 0 (EOF) */
+    while ( (length = read (fd, buffer, BUFSIZE)) > 0 ) 
+      write (1, buffer, length); 
+
+    write(1, "\n", 1);
+    close (fd); 
+}
+void read_file_content(char* fileName, char* buff){
+  char buffer [BUFSIZE]; 
+    int length; 
+    int fd; 
+   
+    /* Open the file, print error message if we fail */
+    if ( ( fd = open (fileName, O_RDONLY) ) < 0 ) { 
+      write(1, "Error\n", 6);
+      return;
+    } 
+    strcpy(buff, "");
+    /* Copy file contents to stdout, stop when read returns 0 (EOF) */
+    while ( (length = read (fd, buffer, BUFSIZE)) > 0 ) 
+      strcat(buff, buffer);
+}
+void save_file_content(char* buffer){
+  
+}
+void clientConnect(ThisSystem** mySystem){
   int clientSocket;
-  char buffer[1024];
+  char buffer[BUFSIZE];
   struct sockaddr_in serverAddr;
   socklen_t addr_size;
-
+  char file[100];
+  char part[5];
   /*---- Create the socket. The three arguments are: ----*/
   /* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
   clientSocket = socket(PF_INET, SOCK_STREAM, 0);
-  
-
-
-  //reading the port number from stdin
-  int port_number = readPortNumber();
-  //I considered the maximum length of the ip to be \0xxx.yyy.zzz.ttt
-  //making it 15 bits
-  char ip[16];
-  //reading the ip from the stdin
-  readIP(ip, sizeof(ip));
-
 
   /*---- Configure settings of the server address struct ----*/
   /* Address family = Internet */
   serverAddr.sin_family = AF_INET;
-  /* Set port number, using htons function to use proper byte order */
-  serverAddr.sin_port = htons(port_number);
-  /* Set IP address to localhost */
-  serverAddr.sin_addr.s_addr = inet_addr(ip);
+  serverAddr.sin_port = htons((*mySystem)->port);
+  serverAddr.sin_addr.s_addr = inet_addr((*mySystem)->ip);
   /* Set all bits of the padding field to 0 */
   memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
 
@@ -133,13 +271,25 @@ void clientConnect(){
   addr_size = sizeof serverAddr;
   connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size);
 
-  /*---- Read the message from the server into the buffer ----*/
-  recv(clientSocket, buffer, 1024, 0);
-
-  /*---- Print the received message ----*/
-  printf("Data received: %s",buffer);
+  while(1){
+      encode_get_part_message(buffer);
+      send(clientSocket, buffer, sizeof(buffer), 0);
+      recv(clientSocket, buffer, 1024, 0);
+      if(buffer[0]=='*')
+        write(1, buffer, sizeof(buffer));
+      else
+        save_file_content(buffer);
+  }
+  
 }
 int main(){
-    clientConnect();
+    ThisSystem* mySystem; 
+    char ip[16];
+    memset(ip, 0, sizeof(ip));
+    memset(mySystem->ip, 0, sizeof(mySystem->ip));
+    mySystem->port = readNumber();
+    readString(ip, sizeof(ip));
+    strcpy(mySystem->ip, ip);
+    clientConnect(&mySystem);
     return 0;
 }
