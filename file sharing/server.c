@@ -115,7 +115,7 @@ void make_file_info_message(File** curr, char* buff){
 	memset(port, 0, sizeof(port));
 	intToCharString((*curr)->part, part);
 	intToCharString((*curr)->port, port);
-	strcpy(buff, "File Name: ");
+	strcpy(buff, "*File Name: ");
 	strcat(buff, (*curr)->fileName);
 	strcat(buff, " Part: ");
 	strcat(buff, part);
