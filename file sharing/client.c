@@ -199,10 +199,8 @@ void get_get_part_message(char* file, char* part){
   we encode it like this
     g(which stands for get)<file name>+<part>+
 */
-void encode_get_part_message(char* msg){
-  char file[100];
+void encode_get_part_message(char* msg, char* file){
   char part[5];
-  memset(file, 0, sizeof(file));
   memset(part, 0, sizeof(part));
   get_get_part_message(file, part);
   strcpy(msg, "g");
@@ -245,8 +243,24 @@ void read_file_content(char* fileName, char* buff){
     while ( (length = read (fd, buffer, BUFSIZE)) > 0 ) 
       strcat(buff, buffer);
 }
-void save_file_content(char* buffer){
-  
+void save_file_content(char* buffer, char* fileName){
+    FILE *fp;
+
+    fp=fopen(fileName, "a");
+    if(fp==NULL){
+      write(1, "Error opening or creating file\n", 31);
+      _exit(1);
+    }
+    int x = fputs(buffer, fp);
+    if(!(x>=0)){
+      write(1, "Error writing to file\n", 22);
+      _exit(1);
+    }
+    int y = fclose(fp);
+    if(y!=0){
+      write(1, "Error closing file\n", 19);
+      _exit(1);
+    }
 }
 void clientConnect(ThisSystem** mySystem){
   int clientSocket;
@@ -254,7 +268,6 @@ void clientConnect(ThisSystem** mySystem){
   struct sockaddr_in serverAddr;
   socklen_t addr_size;
   char file[100];
-  char part[5];
   /*---- Create the socket. The three arguments are: ----*/
   /* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
   clientSocket = socket(PF_INET, SOCK_STREAM, 0);
@@ -272,13 +285,14 @@ void clientConnect(ThisSystem** mySystem){
   connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size);
 
   while(1){
-      encode_get_part_message(buffer);
+      memset(file, 0, sizeof(file));
+      encode_get_part_message(buffer, file);
       send(clientSocket, buffer, sizeof(buffer), 0);
       recv(clientSocket, buffer, 1024, 0);
       if(buffer[0]=='*')
         write(1, buffer, sizeof(buffer));
       else
-        save_file_content(buffer);
+        save_file_content(buffer, file);
   }
   
 }
