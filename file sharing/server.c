@@ -408,7 +408,7 @@ int decode_get_part_message(char* msg, char* fileName){
 	int partN = convertCharArrayToInt(part, partcounter);
 	return partN;
 }
-void workWithSocket(){
+void workWithSocket(File** head, ThisSystem** ourSystem){
 	fd_set master;    // master file descriptor list
     fd_set read_fds;  // temp file descriptor list for select()
     int fdmax;        // maximum file descriptor number
@@ -436,9 +436,11 @@ void workWithSocket(){
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
-	if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
-		fprintf(stderr, "selectserver: %s\n", gai_strerror(rv));
-		exit(1);
+	char port_char[10];
+	intToCharString((*ourSystem)->port, port_char);
+	if ((rv = getaddrinfo((*ourSystem)->ip, port_char, &hints, &ai)) != 0) {
+		write(1, "Error at geraddrinfo.\n", 22);
+		_exit(1);
 	}
 	
 	for(p = ai; p != NULL; p = p->ai_next) {
@@ -477,7 +479,6 @@ void workWithSocket(){
 
     // keep track of the biggest file descriptor
     fdmax = listener; // so far, it's this one
-
     // main loop
     for(;;) {
         read_fds = master; // copy it
@@ -711,17 +712,10 @@ int main(){
 	strcpy(ourSystem->ip, ip); 
 	ourSystem->port = port_number;
 
-	char buff[200];
-	char filebuff[1024];
-	char fileName[100];
 	File* head; 
 	set_up_linkedlist_head(&head);
 	get_available_resources(ip, sizeof(ip), port_number, &head);
 	print_available_resources(&head);
-	memset(filebuff, 0, sizeof(filebuff));
-	encode_get_part_message(buff);
-	if(handle_get_file(buff, &head, &ourSystem, filebuff))
-		printf("%s\n", filebuff);
 	//old_socket();
-	//workWithSocket();
+	workWithSocket(&head, &ourSystem);
 }
