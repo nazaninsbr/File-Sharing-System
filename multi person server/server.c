@@ -239,6 +239,11 @@ void encode_resources(File** curr, char* buff){
 
 	strcpy(buff, temp);
 }
+int iSaDigitOrDot(char c){
+	if(c=='1' || c=='2' || c=='3' || c=='4' || c=='5' || c=='6' || c=='7' || c=='8' || c=='9' || c=='0' || c=='.' || c==' ')
+		return 1;
+	return 0;
+}
 void decode_Resource_from_socket(File** head, char* resourceString, int size){
 	int _part, _port; 
 	char ip[16];
@@ -251,71 +256,48 @@ void decode_Resource_from_socket(File** head, char* resourceString, int size){
 	int portcounter =0;
 	int filecounter=0;
 	int partcounter =0;
-	printf("%s\n", resourceString);
-	while(pluscount!=4){
-		printf("hello1\n");
-		printf("%s\n", file);
-		printf("%s\n", ip);
-		printf("%s\n", portTemp);
-		printf("%s\n", partTemp);
-		//reading the ip
+	memset(ip, 0, sizeof(ip));
+	memset(file, 0, sizeof(file));
+	for(int i=1; i<size; i++){
+		if(resourceString[i]=='+'){
+			pluscount+=1;
+			continue;
+		}
+		if(pluscount==5)
+			break;
 		if(pluscount==0){
-			while(resourceString[stringcounter]!='+'){
-				printf("hello2\n");
-				printf("%c\n", resourceString[stringcounter]);
-				ip[ipcounter] = resourceString[stringcounter];
-				ipcounter+=1;
-				stringcounter+=1;
-			}
-			strcat(ip,"\0");
-			pluscount +=1;
-			stringcounter+=1;
+			ip[ipcounter]=resourceString[i];
+			ipcounter+=1;
 			continue;
 		}
-		//reading the port
 		if(pluscount==1){
-			while(resourceString[stringcounter]!='+'){
-				printf("hello3\n");
-				portTemp[portcounter] = resourceString[stringcounter];
-				portcounter+=1;
-				stringcounter+=1;
-			}
-			strcat(portTemp, "\0");
-			pluscount +=1;
-			stringcounter+=1;
+			portTemp[portcounter]=resourceString[i];
+			portcounter+=1;
 			continue;
 		}
-		//reading the name
 		if(pluscount==2){
-			while(resourceString[stringcounter]!='+'){
-				printf("hello4\n");
-				file[filecounter] = resourceString[stringcounter];
-				filecounter+=1;
-				stringcounter+=1;
-			}
-			strcat(file,"\0");
-			pluscount +=1;
-			stringcounter+=1;
+			file[filecounter]=resourceString[i];
+			filecounter+=1;
 			continue;
 		}
-		//reading the part
 		if(pluscount==3){
-			while(resourceString[stringcounter]!='+'){
-				printf("hello5\n");
-				partTemp[partcounter] = resourceString[stringcounter];
-				partcounter+=1;
-				stringcounter+=1;
-			}
-			strcat(partTemp,"\0");
-			pluscount +=1;
-			stringcounter+=1;
+			partTemp[partcounter]=resourceString[i];
+			partcounter+=1;
 			continue;
 		}
 	}
-	printf("%s\n", file);
-	printf("%s\n", ip);
-	printf("%s\n", portTemp);
-	printf("%s\n", partTemp);
+	for (int i = 0; i < sizeof(ip); i++){
+		if(!iSaDigitOrDot(ip[i]))
+			ip[i]='\0';
+	}
+	for (int i = 0; i < sizeof(partTemp); i++){
+		if(!iSaDigitOrDot(partTemp[i]))
+			partTemp[i]='\0';
+	}
+	for (int i = 0; i < sizeof(portTemp); i++){
+		if(!iSaDigitOrDot(portTemp[i]))
+			portTemp[i]='\0';
+	}
 }
 void workWithSocket(){
 	fd_set master;    // master file descriptor list
@@ -573,7 +555,6 @@ int main(){
 	File* head; 
 	set_up_linkedlist_head(&head);
 	get_available_resources(ip, sizeof(ip), port_number, &head);
-	print_available_resources(&head);
 	encode_resources(&(head->nextFile), buff);
 	decode_Resource_from_socket(&head, buff, sizeof(buff));
 	//old_socket();
