@@ -291,8 +291,12 @@ void clientConnect(ThisSystem** mySystem){
       recv(clientSocket, buffer, 1024, 0);
       if(buffer[0]=='*')
         write(1, buffer, sizeof(buffer));
-      else
+      else{
+        write(1, "Got file content:\n", 18);
+        write(1, buffer, sizeof(buffer));
         save_file_content(buffer, file);
+        write(1, "\n", 1);
+      }
   }
   
 }
