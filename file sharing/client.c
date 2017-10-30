@@ -282,10 +282,11 @@ void clientConnect(ThisSystem** mySystem){
 
   /*---- Connect the socket to the server using the address struct ----*/
   addr_size = sizeof serverAddr;
-  connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size);
-
+  
   while(1){
+      connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size);
       memset(file, 0, sizeof(file));
+      memset(buffer, 0, sizeof(buffer));
       encode_get_part_message(buffer, file);
       send(clientSocket, buffer, sizeof(buffer), 0);
       recv(clientSocket, buffer, 1024, 0);
@@ -296,6 +297,7 @@ void clientConnect(ThisSystem** mySystem){
         write(1, buffer, sizeof(buffer));
         save_file_content(buffer, file);
         write(1, "\n", 1);
+        memset(buffer, 0, sizeof(buffer));
       }
   }
   

@@ -1,5 +1,4 @@
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -407,59 +406,6 @@ int decode_get_part_message(char* msg, char* fileName){
 	int partN = convertCharArrayToInt(part, partcounter);
 	return partN;
 }
-//This is a socket that only sends one message
-void old_socket(){
-	//variable decelerations
-  	int welcomeSocket, newSocket;
-  	char buffer[1024];
-  	struct sockaddr_in serverAddr;
-  	struct sockaddr_storage serverStorage;
-  socklen_t addr_size;
-
-  /*---- Create the socket. The three arguments are: ----*/
-  /* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
-  welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
-  
-
-  //reading the port number from stdin
-	int port_number = readNumber();
-	//I considered the maximum length of the ip to be \0xxx.yyy.zzz.ttt
-	//making it 15 bits
-	char ip[16];
-	//reading the ip from the stdin
-	readString(ip, sizeof(ip));
-
-
-  /*---- Configure settings of the server address struct ----*/
-  /* Address family = Internet */
-  serverAddr.sin_family = AF_INET;
-  /* Set port number, using htons function to use proper byte order */
-  serverAddr.sin_port = htons(port_number);
-  /* Set IP address to localhost */
-  serverAddr.sin_addr.s_addr = inet_addr(ip);
-  /* Set all bits of the padding field to 0 */
-  memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
-
-  /*---- Bind the address struct to the socket ----*/
-  bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
-
-  /*---- Listen on the socket, with 5 max connection requests queued ----*/
-  if(listen(welcomeSocket,5)==0)
-    printf("Listening\n");
-  else
-    printf("Error\n");
-
-  /*---- Accept call creates a new socket for the incoming connection ----*/
-  addr_size = sizeof serverStorage;
-  newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
-
-  /*---- Send message to the socket of the incoming connection ----*/
-  strcpy(buffer,"Hello World\n");
-  send(newSocket,buffer,13,0);
-  recv(newSocket, buffer, 1024, 0);
-  /*---- Print the received message ----*/
-  printf("Data received: %s",buffer);
-}
 void get_available_resources(char* ip, int size, int port_number, File** head){
 	char name[100]; 
 	int part_number;
@@ -542,13 +488,13 @@ int compare_ip_strings(char* ip1, char*ip2){
 	}
 	return 1;
 }
-int handle_get_file(char* msg, File** head, ThisSystem** ourSystem, char* buff){
+void handle_get_file(char* msg, File** head, ThisSystem** ourSystem, char* buff){
 	char fileName[100];
 	int part = decode_get_part_message(msg, fileName);
 	File* curr; 
 	curr = search_for_file(head, fileName, sizeof(fileName), part);
 	if(curr==NULL)
-		return -1;
+		strcpy(buff, "*No such file in our database\n");
 	else{
 		if( (curr->port==(*ourSystem)->port) && (compare_ip_strings(curr->ip, (*ourSystem)->ip)) ){
 			read_file_content(fileName, buff);
@@ -557,7 +503,6 @@ int handle_get_file(char* msg, File** head, ThisSystem** ourSystem, char* buff){
 			make_file_info_message(&curr, buff);
 		}
 	}
-	return 20;
 }
 void workWithSocket(File** head, ThisSystem** ourSystem){
 	fd_set master;    // master file descriptor list
@@ -594,7 +539,6 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
 		write(1, "Error at geraddrinfo.\n", 22);
 		_exit(1);
 	}
-	write(1, "No Error at geraddrinfo.\n", 25);
 	for(p = ai; p != NULL; p = p->ai_next) {
     	listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
 		if (listener < 0) { 
@@ -614,16 +558,16 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
 
 	// if we got here, it means we didn't get bound
 	if (p == NULL) {
-		fprintf(stderr, "selectserver: failed to bind\n");
-		exit(2);
+		write(1, "Selectserver: failed to bind\n", 29);
+		_exit(2);
 	}
 
 	freeaddrinfo(ai); // all done with this
 
     // listen
     if (listen(listener, 10) == -1) {
-        perror("listen");
-        exit(3);
+        write(1, "Error at listen\n", 16);
+        _exit(3);
     }
 
     // add the listener to the master set
@@ -635,12 +579,14 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
     for(;;) {
         read_fds = master; // copy it
         if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
-            perror("select");
-            exit(4);
+            write(1, "Error at select\n", 16);
+            _exit(4);
         }
 
         // run through the existing connections looking for data to read
         for(i = 0; i <= fdmax; i++) {
+        	memset(buf, 0, sizeof(buf));
+        	memset(outputbuff, 0, sizeof(outputbuff));
             if (FD_ISSET(i, &read_fds)) { // we got one!!
                 if (i == listener) {
                     // handle new connections
@@ -650,55 +596,55 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
 						&addrlen);
 
 					if (newfd == -1) {
-                        perror("accept");
+                        write(1, "Error at accept\n", 16);
                     } else {
                         FD_SET(newfd, &master); // add to master set
                         if (newfd > fdmax) {    // keep track of the max
                             fdmax = newfd;
                         }
-                        printf("selectserver: new connection from %s on "
-                            "socket %d\n",
-							inet_ntop(remoteaddr.ss_family,
+                        char socketNum[5];
+                        memset(socketNum, 0, sizeof(socketNum));
+                        intToCharString(newfd, socketNum);
+                        write(1, "selectserver: new connection from ", 34);
+                        write(1, inet_ntop(remoteaddr.ss_family,
 								get_in_addr((struct sockaddr*)&remoteaddr),
-								remoteIP, INET6_ADDRSTRLEN),
-							newfd);
+								remoteIP, INET6_ADDRSTRLEN), sizeof(inet_ntop(remoteaddr.ss_family,
+								get_in_addr((struct sockaddr*)&remoteaddr),
+								remoteIP, INET6_ADDRSTRLEN)));
+                        write(1, " on socket ", 11);
+                        write(1, socketNum, sizeof(socketNum));
+                        write(1, "\n", 1);
                     }
                 } else {
                     // handle data from a client
-                    if ((nbytes = recv(i, buf, sizeof buf, 0))) {
-                    	if(nbytes>0){
-                    		//we got resource information
-                    		if(buf[0]=='i'){
-                    			decode_Resource_from_socket(head, buf, sizeof(buf));
-                    		}
-                    		//we got file request
-                    		if(buf[0]=='g'){
-                    			handle_get_file(buf, head, ourSystem, outputbuff);
-                    			send(i, outputbuff, sizeof(outputbuff), 0);
-                    		}
-                    	}
+                    if ((nbytes = recv(i, buf, sizeof buf, 0))<=0) {
                         // got error or connection closed by client
-                        else if (nbytes == 0) {
+                        if (nbytes == 0) {
                             // connection closed
-                            printf("selectserver: socket %d hung up\n", i);
+                            char socketNum[5];
+                        	memset(socketNum, 0, sizeof(socketNum));
+                        	intToCharString(i, socketNum);
+                            write(1, "selectserver: socket ", 21);
+                            write(1, socketNum, sizeof(socketNum));
+                            write(1, " hung up\n", 9);
                         } else {
-                            perror("recv");
+                            write(1, "Error at recv\n", 14);
                         }
                         close(i); // bye!
                         FD_CLR(i, &master); // remove from master set
                     } else {
                         // we got some data from a client
-                        for(j = 0; j <= fdmax; j++) {
-                            // send to everyone!
-                            if (FD_ISSET(j, &master)) {
-                                // except the listener and ourselves
-                                if (j != listener && j != i) {
-                                    if (send(j, buf, nbytes, 0) == -1) {
-                                        perror("send");
-                                    }
-                                }
-                            }
-                        }
+                        //we got resource information
+                    	if(buf[0]=='i'){
+                    		decode_Resource_from_socket(head, buf, sizeof(buf));
+                    	}
+                    	//we got file request
+                    	if(buf[0]=='g'){
+                    		handle_get_file(buf, head, ourSystem, outputbuff);
+                    		send(i, outputbuff, sizeof(outputbuff), 0);
+                    		memset(buf, 0, sizeof(buf));
+        					memset(outputbuff, 0, sizeof(outputbuff));
+                    	}
                     }
                 } // END handle data from client
             } // END got new incoming connection
@@ -724,6 +670,5 @@ int main(){
 	set_up_linkedlist_head(&head);
 	get_available_resources(ip, sizeof(ip), port_number, &head);
 	print_available_resources(&head);
-	//old_socket();
 	workWithSocket(&head, &ourSystem);
 }
