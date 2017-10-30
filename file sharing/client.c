@@ -301,11 +301,13 @@ void clientConnect(ThisSystem** mySystem){
   
 }
 int main(){
-    ThisSystem* mySystem; 
+    ThisSystem* mySystem = (ThisSystem*)malloc(sizeof(ThisSystem)); 
     char ip[16];
     memset(ip, 0, sizeof(ip));
-    memset(mySystem->ip, 0, sizeof(mySystem->ip));
+    //memset(mySystem->ip, 0, sizeof(mySystem->ip));
+    write(1, "Port: ", 6);
     mySystem->port = readNumber();
+    write(1, "IP: ", 3);
     readString(ip, sizeof(ip));
     strcpy(mySystem->ip, ip);
     clientConnect(&mySystem);

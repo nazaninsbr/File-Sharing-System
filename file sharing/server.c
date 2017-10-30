@@ -588,12 +588,13 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 	char port_char[10];
+	memset(port_char, 0, sizeof(port_char));
 	intToCharString((*ourSystem)->port, port_char);
 	if ((rv = getaddrinfo((*ourSystem)->ip, port_char, &hints, &ai)) != 0) {
 		write(1, "Error at geraddrinfo.\n", 22);
 		_exit(1);
 	}
-	
+	write(1, "No Error at geraddrinfo.\n", 25);
 	for(p = ai; p != NULL; p = p->ai_next) {
     	listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
 		if (listener < 0) { 
@@ -664,7 +665,7 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
                     }
                 } else {
                     // handle data from a client
-                    if ((nbytes = recv(i, buf, sizeof buf, 0)) <= 0) {
+                    if ((nbytes = recv(i, buf, sizeof buf, 0))) {
                     	if(nbytes>0){
                     		//we got resource information
                     		if(buf[0]=='i'){
