@@ -109,7 +109,6 @@ void print_node_info(File** curr){
 void make_file_info_message(File** curr, char* buff){
 	char port[10]; 
 	char part[10]; 
-	memset(buff, 0, sizeof(buff));
 	memset(part, 0, sizeof(part));
 	memset(port, 0, sizeof(port));
 	intToCharString((*curr)->part, part);
