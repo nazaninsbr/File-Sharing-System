@@ -193,7 +193,7 @@ void readString(char* ip, int size){
 void get_get_part_message(char* file, char* part){
   write(1, "The name of the file you want: ", 31);
   readString(file, sizeof(file));
-  write(1, "Which part? ", 12);
+  write(1, "Which part?(-1 for all) ", 24);
   readString(part, sizeof(part));
 }
 /*
@@ -204,11 +204,16 @@ void encode_get_part_message(char* msg, char* file){
   char part[5];
   memset(part, 0, sizeof(part));
   get_get_part_message(file, part);
-  strcpy(msg, "g");
-  strcat(msg, file);
-  strcat(msg, "+");
-  strcat(msg, part);
-  strcat(msg,"+");
+  if(strcmp(part, "-1")==0){
+    strcpy(msg, "a");
+    strcat(msg, file);
+  }else{
+    strcpy(msg, "g");
+    strcat(msg, file);
+    strcat(msg, "+");
+    strcat(msg, part);
+    strcat(msg,"+");
+  }
 }
 //This is a socket that only sends one message
 void read_and_write_file_content(char* fileName){
@@ -340,6 +345,9 @@ void clientConnect(ThisSystem** mySystem){
             write(1, "Back to the main server\n", 24);
          }
         }
+      }
+      else if(buffer[0]=='A'){
+        write(1, buffer, sizeof(buffer));
       }
       else{
         write(1, "Got file content:\n", 18);

@@ -1,4 +1,4 @@
-
+//#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -593,9 +593,10 @@ void sortStructBasedOnName(File** head){
 void sendAllFileData(char* buf, File** head, char* outputbuff){
 	char file[100];
 	char buff[100];
+	memset(file, 0, sizeof(file));
 	strcpy(file, strtok(buf, "a"));
 	strcpy(outputbuff, "All:\n");
-	File* curr;
+	File* curr = (*head);
 	while(curr!=NULL){
 		memset(buff, 0, sizeof(buff));
 		if(strcmp(curr->fileName, file)==0){
