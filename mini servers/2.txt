@@ -1,0 +1,3 @@
+bye
+g2.txt+1+g2.txt+1+bye
+g2.txt+1+g2.txt+1+
