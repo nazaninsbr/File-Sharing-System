@@ -1,4 +1,3 @@
-//#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -22,45 +21,6 @@ typedef struct ThisSystem{
 	char ip[16]; 
 	int port;
 }ThisSystem;
-File* findPrevElementOf(File** head, File* one){
-	File* curr = (*head)->nextFile;
-	File* prev = (*head);
-	while(curr!=NULL){
-		if(strcmp(curr->fileName,one->fileName)==0){
-			if(curr->part==one->part){
-				if(curr->port==one->port){
-					if(strcmp(curr->ip,one->ip)==0){
-						return prev;
-					}
-				}
-			}
-		}
-		prev = curr;
-		curr = curr->nextFile;
-	}
-	return NULL;
-}
-void swapStruct(File** head, File** one, File** two){
-	File* prevone = findPrevElementOf(head, *one);
-	File* prevtwo = findPrevElementOf(head, *two);
-	if(prevone==NULL || prevtwo==NULL){
-		write(1, "Error sorting.\n", 15);
-		_exit(1);
-	}
-	//change pointers
-	if(prevtwo!=(*one)){
-		File* temp = (*one)->nextFile;
-		prevone->nextFile = (*two);
-		prevtwo->nextFile = (*one);
-		(*one)->nextFile = (*two)->nextFile;
-		(*two)->nextFile = temp;
-	}
-	else{
-		prevone->nextFile = (*two);
-		(*one)->nextFile = (*two)->nextFile;
-		(*two)->nextFile = (*one);
-	}
-}
 char intToCharDigit(int c){
 	char ret; 
 	switch(c){
@@ -130,6 +90,21 @@ void intToCharString(int x, char* charEq){
 	}
 	reverse_string(charEq);
 }
+void print_node_info(File** curr){
+	char port[10]; 
+	char part[10]; 
+	intToCharString((*curr)->part, part);
+	intToCharString((*curr)->port, port);
+	write(1, "File Name: ", 11); 
+	write(1, (*curr)->fileName, sizeof((*curr)->fileName));
+	write(1, " Part: ", 7);
+	write(1, part, sizeof((*curr)->part));
+	write(1, " available at port: ", 20);
+	write(1, port, sizeof((*curr)->port)); 
+	write(1, " ip: ", 5);
+	write(1, (*curr)->ip, sizeof((*curr)->ip));
+	write(1, "\n", 1);
+}
 void make_file_info_message(File** curr, char* buff){
 	char port[10]; 
 	char part[10]; 
@@ -196,7 +171,7 @@ int convertCharArrayToInt(char* arr, int size){
 	for(int position = 0; position<size; position++){
 		int temp = charDigitToInt(arr[position]);
 		if(temp==-1){
-			write(1, "Invalid Number\n", 20);
+			write(1, "Invalid Port Number\n", 20);
 			_exit(1);
 		}
 		converted += temp*pow;
@@ -213,41 +188,12 @@ int convertCharPortToInt(char *buff, int size, int numOfRead){
 		int temp = charDigitToInt(buff[position]);
 		if(temp==-1){
 			write(1, "Invalid Port Number\n", 20);
-			return -1;
+			_exit(1);
 		}
 		converted += temp*pow;
 		pow *= base;
 	}
 	return converted;
-}
-void print_node_info(File** curr){
-	char port[10]; 
-	char part[10]; 
-	memset(port, 0, sizeof(port));
-	memset(part, 0, sizeof(part));
-	intToCharString((*curr)->part, part);
-	intToCharString((*curr)->port, port);
-	write(1, "File Name: ", 11); 
-	write(1, (*curr)->fileName, sizeof((*curr)->fileName));
-	write(1, " Part: ", 7);
-	write(1, part, sizeof((*curr)->part));
-	write(1, " available at port: ", 20);
-	write(1, port, sizeof((*curr)->port)); 
-	write(1, " ip: ", 5);
-	write(1, (*curr)->ip, sizeof((*curr)->ip));
-	write(1, "\n", 1);
-}
-void print_available_resources(File** head){
-	File* curr = (*head); 
-	if(curr==NULL){
-		write(1, "No available resources\n", 23);
-		return;
-	}
-	curr= curr->nextFile;
-	while(curr!=NULL){
-		print_node_info(&curr); 
-		curr =  curr->nextFile;
-	}
 }
 //This function reads the port number using read()
 //then passes it to another function to be converted into int
@@ -300,13 +246,15 @@ File* search_for_file(File** head, char* name, int size, int part){
 	}
 	return NULL;
 }
-File* add_file_part(File** head, int _port, int _part, char* name, int size, char* ip, int sizeIP){
+void add_file_part(File** head, int _port, int _part, char* name, int size, char* ip, int sizeIP){
 	File* newfile; 
 	File* curr;
 	curr = (struct File*)malloc(sizeof(struct File));
 	newfile = (struct File*)malloc(sizeof(struct File));
 	curr= (*head);
 	//fill the data for the new node
+	memset(newfile->fileName, 0, sizeof(newfile->fileName));
+	memset(newfile->ip, 0, sizeof(newfile->ip));
 	strcpy(newfile->fileName, name);
 	strcpy(newfile->ip, ip);
 	newfile->port = _port; 
@@ -319,7 +267,6 @@ File* add_file_part(File** head, int _port, int _part, char* name, int size, cha
 			break;
 	}
 	curr->nextFile = newfile;
-	return newfile;
 }
 /*
 	the whole thing is 256 chars and we will order it like this:
@@ -330,6 +277,7 @@ void encode_resources(File** curr, char* buff){
 	char temp[256];
 	char port[5];
 	char part[5];
+	memset(temp, 0, sizeof(temp));
 	intToCharString((*curr)->port, port);
 	intToCharString((*curr)->part, part);
 	strcpy(temp, "i");
@@ -404,14 +352,9 @@ void decode_Resource_from_socket(File** head, char* resourceString, int size){
 		if(!iSaDigitOrDot(portTemp[i]))
 			portTemp[i]='\0';
 	}
-	file[filecounter]='\0';
-	reverse_string(portTemp);
-	reverse_string(partTemp);
 	_port = convertCharArrayToInt(portTemp, portcounter);
 	_part = convertCharArrayToInt(partTemp, partcounter);
-	File* addedFile = add_file_part(head, _port, _part, file, sizeof(file), ip, sizeof(ip));
-	write(1, "Added the following resource: ",30);
-	print_node_info(&addedFile);
+	add_file_part(head, _port, _part, file, sizeof(file), ip, sizeof(ip));
 }
 void get_get_part_message(char* file, char* part){
 	write(1, "The name of the file you want: ", 31);
@@ -482,6 +425,18 @@ void get_available_resources(char* ip, int size, int port_number, File** head){
 		add_file_part(head, port_number, part_number, name, sizeof(name), ip, sizeof(ip));
 	}while(name[0]!='0' && part_number!=0);
 }
+void print_available_resources(File** head){
+	File* curr = (*head); 
+	if(curr==NULL){
+		write(1, "No available resources\n", 23);
+		return;
+	}
+	curr= curr->nextFile;
+	while(curr!=NULL){
+		print_node_info(&curr); 
+		curr =  curr->nextFile;
+	}
+}
 void set_up_linkedlist_head(File** head){
 	(*head) = (struct File*)malloc(sizeof(struct File));
 	(*head)->port = 0; 
@@ -551,63 +506,7 @@ void handle_get_file(char* msg, File** head, ThisSystem** ourSystem, char* buff)
 		}
 	}
 }
-void sortStructBasedOnNumber(File** head){
-	File* ptr1;
-	File* ptr2;
-	if (*head == NULL)
-        return;
-	ptr1 = (*head)->nextFile;
-    while(ptr1!=NULL){
-    	ptr2 = ptr1->nextFile;
-        while (ptr2 != NULL)
-        {
-        	if(strcmp(ptr1->fileName, ptr2->fileName)==0){
-            	if (ptr1->part > ptr2->part){ 
-                	swapStruct(head, &ptr1, &ptr2);
-            	}
-            }
-            ptr2 = ptr2->nextFile;
-        }
-        ptr1 = ptr1->nextFile;
-    }
-}
-void sortStructBasedOnName(File** head){
-	File* ptr1;
-	File* ptr2;
-	if (*head == NULL)
-        return;
-	ptr1 = (*head)->nextFile;
-    while(ptr1!=NULL){
-    	ptr2 = ptr1->nextFile;
-        while (ptr2 != NULL)
-        {
-        	if(strcmp(ptr1->fileName, ptr2->fileName)>0){ 
-                	swapStruct(head, &ptr1, &ptr2);
-            }
-            ptr2 = ptr2->nextFile;
-        }
-        ptr1 = ptr1->nextFile;
-    }
-    sortStructBasedOnNumber(head);
-}
-void sendAllFileData(char* buf, File** head, char* outputbuff){
-	char file[100];
-	char buff[100];
-	memset(file, 0, sizeof(file));
-	strcpy(file, strtok(buf, "a"));
-	strcpy(outputbuff, "All:\n");
-	File* curr = (*head);
-	while(curr!=NULL){
-		memset(buff, 0, sizeof(buff));
-		if(strcmp(curr->fileName, file)==0){
-			make_file_info_message(&curr, buff);
-			strcat(outputbuff, buff);
-			strcat(outputbuff, "\n");
-		}
-		curr = curr->nextFile;
-	}
-}
-void workWithSocket(File** head, ThisSystem** ourSystem){
+void becomeAServer(File** head, ThisSystem** ourSystem){
 	fd_set master;    // master file descriptor list
     fd_set read_fds;  // temp file descriptor list for select()
     int fdmax;        // maximum file descriptor number
@@ -688,7 +587,7 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
 
         // run through the existing connections looking for data to read
         for(i = 0; i <= fdmax; i++) {
-        	memset(buf, 0, sizeof(buf));
+      		memset(buf, 0, sizeof(buf));
         	memset(outputbuff, 0, sizeof(outputbuff));
             if (FD_ISSET(i, &read_fds)) { // we got one!!
                 if (i == listener) {
@@ -742,7 +641,6 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
                     		decode_Resource_from_socket(head, buf, sizeof(buf));
                     		memset(buf, 0, sizeof(buf));
         					memset(outputbuff, 0, sizeof(outputbuff));
-        					sortStructBasedOnName(head);
                     	}
                     	//we got file request
                     	if(buf[0]=='g'){
@@ -750,12 +648,17 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
                     		send(i, outputbuff, sizeof(outputbuff), 0);
                     		memset(buf, 0, sizeof(buf));
         					memset(outputbuff, 0, sizeof(outputbuff));
+        					buf[0]='\0';
+        					outputbuff[0]='\0';
                     	}
-                    	if(buf[0]=='a'){
-                    		sendAllFileData(buf, head, outputbuff);
-                    		send(i, outputbuff, sizeof(outputbuff), 0);
-                    		memset(buf, 0, sizeof(buf));
-        					memset(outputbuff, 0, sizeof(outputbuff));
+                    	if(buf[0]=='e'){
+                    		close(i);
+                    		char socketNum[5];
+                        	memset(socketNum, 0, sizeof(socketNum));
+                        	intToCharString(i, socketNum);
+                            write(1, "selectserver: socket ", 21);
+                            write(1, socketNum, sizeof(socketNum));
+                            write(1, " hung up\n", 9);
                     	}
                     }
                 } // END handle data from client
@@ -763,16 +666,52 @@ void workWithSocket(File** head, ThisSystem** ourSystem){
         } // END looping through file descriptors
     } // END for(;;)--and you thought it would never end!
 }
+void BeAclient(File** head){
+  	int clientSocket;
+  	char buffer[BUFSIZE];
+  	struct sockaddr_in serverAddr;
+  	socklen_t addr_size;
+  	char ip[16];
+  	memset(ip, 0, sizeof(ip));
+  	write(1, "Port of the Server you want to connect to: ", 43);
+  	int port = readNumber();
+  	write(1, "IP: ", 4);
+  	readString(ip, sizeof(ip));
+  	/*---- Create the socket. The three arguments are: ----*/
+  	/* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
+  	clientSocket = socket(PF_INET, SOCK_STREAM, 0);
+
+  	/*---- Configure settings of the server address struct ----*/
+  	/* Address family = Internet */
+  	serverAddr.sin_family = AF_INET;
+  	serverAddr.sin_port = htons(port);
+  	serverAddr.sin_addr.s_addr = inet_addr(ip);
+  	/* Set all bits of the padding field to 0 */
+  	memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);  
+
+  	/*---- Connect the socket to the server using the address struct ----*/
+  	addr_size = sizeof serverAddr;
+  
+  	connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size);
+  	File* curr = (*head)->nextFile;
+  	while(curr!=NULL){
+  		memset(buffer, 0, sizeof(buffer));
+  		encode_resources(&curr, buffer);
+  		send(clientSocket, buffer, sizeof(buffer), 0);
+  		curr = curr->nextFile;
+  	}
+  	close(clientSocket);
+}
 int main(){
 	ThisSystem* ourSystem = (ThisSystem*)malloc(sizeof(ThisSystem));
-	write(1, "Port: ", 6);
+	write(1, "This Servers Port: ", 19);
 	int port_number = readNumber();
 	//I considered the maximum length of the ip to be \0xxx.yyy.zzz.ttt making it 16 bits
 	char ip[16];
 	memset(ip, 0, sizeof(ip));
 	memset(ourSystem->ip, 0, sizeof(ip));
 	//reading the ip from the stdin
-	write(1, "IP: ", 3);
+	write(1, "This Servers IP: ", 17);
 	readString(ip, sizeof(ip));
 
 	strcpy(ourSystem->ip, ip); 
@@ -782,9 +721,8 @@ int main(){
 	set_up_linkedlist_head(&head);
 	get_available_resources(ip, sizeof(ip), port_number, &head);
 	print_available_resources(&head);
-	write(1, "Sorted:\n", 8);
-	sortStructBasedOnName(&head);
-	print_available_resources(&head);
-	write(1, "Starting Server.\n", 17);
-	workWithSocket(&head, &ourSystem);
+
+	BeAclient(&head);
+
+	becomeAServer(&head, &ourSystem);
 }

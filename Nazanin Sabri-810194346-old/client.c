@@ -1,9 +1,8 @@
-//#include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/socket.h>
 #include <fcntl.h> 
 #include <netinet/in.h>
@@ -149,9 +148,8 @@ int convertCharPortToInt(char *buff, int size, int numOfRead){
   for(int position = numOfRead -1; position>=0; position--){
     int temp = charDigitToInt(buff[position]);
     if(temp==-1){
-      //write(1, "Invalid Port Number\n", 20);
-      //_exit(1);
-      return -1;
+      write(1, "Invalid Port Number\n", 20);
+      _exit(1);
     }
     converted += temp*pow;
     pow *= base;
@@ -194,7 +192,7 @@ void readString(char* ip, int size){
 void get_get_part_message(char* file, char* part){
   write(1, "The name of the file you want: ", 31);
   readString(file, sizeof(file));
-  write(1, "Which part?(-1 for all) ", 24);
+  write(1, "Which part? ", 12);
   readString(part, sizeof(part));
 }
 /*
@@ -205,16 +203,11 @@ void encode_get_part_message(char* msg, char* file){
   char part[5];
   memset(part, 0, sizeof(part));
   get_get_part_message(file, part);
-  if(strcmp(part, "-1")==0){
-    strcpy(msg, "a");
-    strcat(msg, file);
-  }else{
-    strcpy(msg, "g");
-    strcat(msg, file);
-    strcat(msg, "+");
-    strcat(msg, part);
-    strcat(msg,"+");
-  }
+  strcpy(msg, "g");
+  strcat(msg, file);
+  strcat(msg, "+");
+  strcat(msg, part);
+  strcat(msg,"+");
 }
 //This is a socket that only sends one message
 void read_and_write_file_content(char* fileName){
@@ -251,29 +244,22 @@ void read_file_content(char* fileName, char* buff){
       strcat(buff, buffer);
 }
 void save_file_content(char* buffer, char* fileName){
-    int fd;
-    int length;
-    char buf[256];
-    char readBuff[FILEBUFF];
-    memset(readBuff, 0, sizeof(readBuff));
-    read_file_content(fileName, readBuff);
-    //fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IRGRP | S_IROTH);
-    fd = open(fileName, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if(fd<0){
-	     write(1, "File error\n", 11);
-	     return;
-    }	
-    //fchmod(fd, S_IRWXU | S_IRWXG | S_IROTH | S_IWOTH);
-    strcat(readBuff, buffer);
-    int x = write(fd, readBuff, strlen(readBuff));
-    if(x==-1){
-      write(1, "Error writing to file\n", 22);
-      return;
+    FILE *fp;
+
+    fp=fopen(fileName, "a");
+    if(fp==NULL){
+      write(1, "Error opening or creating file\n", 31);
+      _exit(1);
     }
-    int y = close(fd);
-    if(y==-1){
+    int x = fputs(buffer, fp);
+    if(!(x>=0)){
+      write(1, "Error writing to file\n", 22);
+      _exit(1);
+    }
+    int y = fclose(fp);
+    if(y!=0){
       write(1, "Error closing file\n", 19);
-      return;
+      _exit(1);
     }
 }
 void connect_to_the_mini_server(){
@@ -344,7 +330,7 @@ void clientConnect(ThisSystem** mySystem){
       if(buffer[0]=='*'){
           char ans[2];
           write(1, buffer, sizeof(buffer));
-        if(buffer[1]=='F'){
+	      if(buffer[1]=='F'){
           write(1, "Do you want to connect to that port now?Y or N ", 47);
           read(0, ans, 2);
           if(ans[0]=='Y'){
@@ -353,9 +339,6 @@ void clientConnect(ThisSystem** mySystem){
             write(1, "Back to the main server\n", 24);
          }
         }
-      }
-      else if(buffer[0]=='A'){
-        write(1, buffer, sizeof(buffer));
       }
       else{
         write(1, "Got file content:\n", 18);
@@ -366,34 +349,16 @@ void clientConnect(ThisSystem** mySystem){
       }
   }
 }
-int iSaDigitOrDot(char c){
-  if(c=='1' || c=='2' || c=='3' || c=='4' || c=='5' || c=='6' || c=='7' || c=='8' || c=='9' || c=='0' || c=='.' || c==' ' ||  c=='\n' || c=='\0')
-    return 1;
-  return 0;
-}
-int checkIP(char* ip){
-  for(int i=0; i<sizeof(ip); i++){
-    if(iSaDigitOrDot(ip[i])==0){
-      return 0; 
-    }
-  }
-  return 1;
-}
 int main(){
     ThisSystem* mySystem = (ThisSystem*)malloc(sizeof(ThisSystem)); 
     char ip[16];
     memset(ip, 0, sizeof(ip));
     //memset(mySystem->ip, 0, sizeof(mySystem->ip));
-    do{
-      write(1, "Port: ", 6);
-      mySystem->port = readNumber();
-    }while(mySystem->port==-1);
-    do{
-      memset(ip, 0, sizeof(ip));
-      write(1, "IP: ", 3);
-      readString(ip, sizeof(ip));
-      strcpy(mySystem->ip, ip);
-    }while(checkIP(ip)==0);
+    write(1, "Port: ", 6);
+    mySystem->port = readNumber();
+    write(1, "IP: ", 3);
+    readString(ip, sizeof(ip));
+    strcpy(mySystem->ip, ip);
     clientConnect(&mySystem);
     return 0;
 }
